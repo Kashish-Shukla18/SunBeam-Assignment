@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment UI</title>
+</head>
+<body>
+
+    <div id="loginSection">
+        <h2>Login</h2>
+        <form id="loginForm">
+            <label for="login_id">Login ID:</label>
+            <input type="text" id="login_id" required><br>
+            <label for="password">Password:</label>
+            <input type="password" id="password" required><br>
+            <button type="button" onclick="authenticateUser()">Login</button>
+        </form>
+    </div>
+
+    <div id="customerListSection" style="display: none;">
+        <h2>Customer List</h2>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="customerList"></tbody>
+        </table>
+    </div>
+
+    <div id="createCustomerSection" style="display: none;">
+        <h2>Create Customer</h2>
+        <form id="createCustomerForm">
+            <label for="first_name">First Name:</label>
+            <input type="text" id="first_name" required><br>
+            <label for="last_name">Last Name:</label>
+            <input type="text" id="last_name" required><br>
+            <!-- Add other customer fields as needed -->
+            <button type="button" onclick="createCustomer()">Create Customer</button>
+        </form>
+    </div>
+
+    <script>
+        let token;
+
+        async function authenticateUser() {
+    const loginId = document.getElementById("login_id").value;
+    const password = document.getElementById("password").value;
+
+    try {
+        const response = await fetch('https://qa2.sunbasedata.com/sunbase/portal/api/assignment_auth.jsp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                login_id: loginId,
+                password: password
+            })
+        });
+console.log(response);
+        if (response.ok) {
+            const data = await response.json();
+            token = data.token;
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("customerListSection").style.display = "block";
+            document.getElementById("createCustomerSection").style.display = "block";
+            getCustomerList();
+        } else {
+            throw new Error('Authentication failed');
+        }
+    } catch (error) {
+        console.error('Error during authentication:', error);
+        alert('Authentication failed. Please check your credentials.');
+    }
+}
+        function getCustomerList() {
+            fetch('https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=get_customer_list', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const customerList = document.getElementById("customerList");
+                customerList.innerHTML = "";
+                data.forEach(customer => {
+                    const row = document.createElement("tr");
+                    row.innerHTML = `<td>${customer.first_name}</td>
+                                     <td>${customer.last_name}</td>
+                                     <td>${customer.email}</td>
+                                     <td>${customer.phone}</td>
+                                     <td><button onclick="deleteCustomer('${customer.uuid}')">Delete</button>
+                                         <button onclick="updateCustomer('${customer.uuid}')">Update</button></td>`;
+                    customerList.appendChild(row);
+                });
+            })
+            .catch(error => console.error('Error fetching customer list:', error));
+        }
+
+        function createCustomer() {
+            const firstName = document.getElementById("first_name").value;
+            const lastName = document.getElementById("last_name").value;
+
+            fetch('https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    "first_name": firstName,
+                    "last_name": lastName
+                    // Add other customer fields as needed
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Customer created successfully');
+                    getCustomerList();
+                } else if (response.status === 400) {
+                    throw new Error('First Name or Last Name is missing');
+                } else {
+                    throw new Error('Error creating customer');
+                }
+            })
+            .catch(error => console.error('Error creating customer:', error));
+        }
+
+        function deleteCustomer(uuid) {
+            fetch(`https://qa2.sunbasedata.com/sunbase/portal/api/assignment.jsp?cmd=delete&uuid=${uuid}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            })
+            .then(response => {
+            if (response.ok) {
+                alert('Customer deleted successfully');
+                getCustomerList();
+            } else if (response.status === 400) {
+                throw new Error('UUID not found');
+            } else {
+                throw new Error('Error deleting customer');
+            }
+        })
+        .catch(error => console.error('Error deleting customer:', error));
+    }
+</script>
+</body>
+</html>
